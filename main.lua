@@ -31,6 +31,9 @@ local timer = 0
 -- Last recorded Y value for a gap placement
 local lastY = -PIPE_HEIGHT + math.random(80) + 20
 
+-- scrolling variable to pause the game when we collide with a pipe
+local scrolling = true
+
 function love.load()
     love.graphics.setDefaultFilter('nearest', 'nearest')
     love.window.setTitle('Flappy Bird')
@@ -58,32 +61,47 @@ function love.keyboard.wasPressed(key)
 end
 
 function love.update(dt)
-    backgroundScroll = (backgroundScroll + BACKGROUND_SCROLL_SPEED * dt) % BACKGROUND_LOOPING_POINT
-    groundScroll = (groundScroll + GROUND_SCROLL_SPEED * dt) % VIRTUAL_WIDTH
+    if scrolling then
+        backgroundScroll = (backgroundScroll + BACKGROUND_SCROLL_SPEED * dt) % BACKGROUND_LOOPING_POINT
+        groundScroll = (groundScroll + GROUND_SCROLL_SPEED * dt) % VIRTUAL_WIDTH
 
-    timer = timer + dt
+        timer = timer + dt
 
-    if timer > 2 then
-        local y = math.max(-PIPE_HEIGHT + 10,
-            math.min(lastY + math.random(-20, 20), VIRTUAL_HEIGHT - 90 - PIPE_HEIGHT))
-        lastY = y
-        table.insert(pipePairs, PipePair(y))
-        timer = 0
-    end
-
-    bird:update(dt)
-
-    for k, pair in pairs(pipePairs) do
-        pair:update(dt)
-    end
-
-    for k, pair in pairs(pipePairs) do
-        if pair.remove then
-            table.remove(pipePairs, k)
+        if timer > 2 then
+            local y = math.max(-PIPE_HEIGHT + 10,
+                math.min(lastY + math.random(-20, 20), VIRTUAL_HEIGHT - 90 - PIPE_HEIGHT))
+            lastY = y
+            table.insert(pipePairs, PipePair(y))
+            timer = 0
         end
-    end
 
-    love.keyboard.keysPressed = {}
+        bird:update(dt)
+
+        for k, pair in pairs(pipePairs) do
+            pair:update(dt)
+
+            -- check to see if bird collided with pipe
+            for l, pipe in pairs(pair.pipes) do
+                if bird:collides(pipe) then
+                    -- pause the game to show collision
+                    scrolling = false
+                end
+            end
+
+            -- if pipe is no longer visible past left edge, remove it from screen
+            if pair.x < -PIPE_WIDTH then
+                pair.remove = true
+            end
+        end
+
+        for k, pair in pairs(pipePairs) do
+            if pair.remove then
+                table.remove(pipePairs, k)
+            end
+        end
+    
+        love.keyboard.keysPressed = {}
+    end
 end
 
 function love.draw()
